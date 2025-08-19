@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import './App.css';
 
 /**
- * Minimal Tic Tac Toe implementation (Two-player only).
- * - Human vs Human play only
+ * Minimal Tic Tac Toe implementation with:
+ * - Two-player and optional simple AI
  * - Centered board, score above, controls below
  * - Session score tracking
  * - Restart functionality
@@ -42,9 +42,10 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Game state (two-player only)
+  // Game state
   const [board, setBoard] = useState(Array(9).fill(null));
   const [xIsNext, setXIsNext] = useState(true);
+  const [mode, setMode] = useState('pvp'); // 'pvp' or 'ai'
   const [scores, setScores] = useState({ X: 0, O: 0, Draws: 0 });
 
   const winnerInfo = useMemo(() => calculateWinner(board), [board]);
@@ -95,6 +96,62 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winnerInfo, isBoardFull]);
 
+  // Simple AI: tries to win, then block, otherwise pick center, corner, random
+  useEffect(() => {
+    if (mode !== 'ai') return;
+    // AI plays 'O' by default when it's O's turn
+    if (winnerInfo || isBoardFull) return;
+    const aiTurn = !xIsNext; // O's turn
+    if (!aiTurn) return;
+
+    const makeMove = (idx) => {
+      const next = board.slice();
+      next[idx] = 'O';
+      setBoard(next);
+      setXIsNext(true);
+    };
+
+    const empty = getEmptySquares(board);
+
+    // 1) Win if possible
+    for (const idx of empty) {
+      const attempt = board.slice();
+      attempt[idx] = 'O';
+      if (calculateWinner(attempt)?.player === 'O') {
+        makeMove(idx);
+        return;
+      }
+    }
+    // 2) Block X if necessary
+    for (const idx of empty) {
+      const attempt = board.slice();
+      attempt[idx] = 'X';
+      if (calculateWinner(attempt)?.player === 'X') {
+        makeMove(idx);
+        return;
+      }
+    }
+    // 3) Take center
+    if (empty.includes(4)) {
+      makeMove(4);
+      return;
+    }
+    // 4) Take a corner
+    const corners = empty.filter(i => [0, 2, 6, 8].includes(i));
+    if (corners.length) {
+      makeMove(corners[Math.floor(Math.random() * corners.length)]);
+      return;
+    }
+    // 5) Random
+    makeMove(empty[Math.floor(Math.random() * empty.length)]);
+  }, [mode, xIsNext, board, winnerInfo, isBoardFull]);
+
+  // PUBLIC_INTERFACE
+  function changeMode(newMode) {
+    setMode(newMode);
+    resetBoard();
+  }
+
   return (
     <div className="App">
       <header className="ttt-header">
@@ -104,7 +161,20 @@ export default function App() {
           <div className="score chip chip-secondary" aria-label="Score for O">O: {scores.O}</div>
           <div className="score chip chip-accent" aria-label="Draws">Draws: {scores.Draws}</div>
         </div>
-        {/* Mode switch removed: only two-player mode remains */}
+        <div className="mode-switch" role="group" aria-label="Game mode">
+          <button
+            className={`btn ${mode === 'pvp' ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => changeMode('pvp')}
+          >
+            Two Players
+          </button>
+          <button
+            className={`btn ${mode === 'ai' ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => changeMode('ai')}
+          >
+            Play vs Computer
+          </button>
+        </div>
       </header>
 
       <main className="board-wrapper">
@@ -120,7 +190,6 @@ export default function App() {
                 className={`cell ${highlight ? 'cell-win' : ''}`}
                 onClick={() => handleSquareClick(idx)}
                 disabled={!!winnerInfo || !!value}
-                style={value === 'O' ? { color: '#000000' } : undefined}
               >
                 {value}
               </button>
