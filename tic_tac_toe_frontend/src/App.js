@@ -190,7 +190,6 @@ export default function App() {
                 className={`cell ${highlight ? 'cell-win' : ''}`}
                 onClick={() => handleSquareClick(idx)}
                 disabled={!!winnerInfo || !!value}
-                style={value === 'O' ? { color: '#000000' } : undefined}
               >
                 {value}
               </button>
